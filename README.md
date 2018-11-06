@@ -1,6 +1,6 @@
 # crop_square_image
 
-A new flutter plugin project.
+Flutter plugin to crop image into largest centered square.
 
 ## Getting Started
 
