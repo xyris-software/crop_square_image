@@ -20,7 +20,7 @@ public class CropSquareImagePlugin implements MethodCallHandler {
       result.success("Hello world " + android.os.Build.VERSION.RELEASE);
       //result.success("Android " + android.os.Build.VERSION.RELEASE);
     } else if (call.method.equals("getCurrentTemperature")) {
-      result.success("23.2 degrees");
+      result.success("16.9 degrees");
     } else {
       result.notImplemented();
     }
