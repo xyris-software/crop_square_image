@@ -52,7 +52,7 @@ class CropSquareImage {
   static Future<ImageDimensions> getImageDimensions({File file}) async {
     assert(file != null);
     final result =
-    await _channel.invokeMethod('getImageOptions', {'path': file.path});
+    await _channel.invokeMethod('getImageDimensions', {'path': file.path});
     return ImageDimensions(
       width: result['width'],
       height: result['height'],
