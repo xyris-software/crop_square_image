@@ -134,11 +134,19 @@
             
             croppedImage = scaledImage;
         }
+        // Rotate image 90 degrees clockwise
         UIImage *tempImage = [[UIImage alloc]initWithCGImage:croppedImage];
         UIImage *rotatedImage = [self imageRotatedByDegrees:tempImage deg:90];
         
+        // Generate a unique file name in a temporary location
         NSURL* croppedUrl = [self createTemporaryImageUrl];
-        bool saved = [self saveImage:rotatedImage.CGImage url:croppedUrl];
+        
+        // Compress file to a size less than 0.2MB
+        NSData *data = [self compressImage:rotatedImage maxLength:200000];
+        
+        // Save file
+        bool saved = [data writeToURL:croppedUrl atomically:NO];
+        //bool saved = [self saveImage:rotatedImage.CGImage url:croppedUrl];
         CFRelease(croppedImage);
         // Release memory used by UIImages. Maybe not necessary with ARC?
         tempImage = nil;
@@ -192,6 +200,25 @@
             result(@NO);
         }
     }];
+}
+
+- (NSData *)compressImage:(UIImage *)image maxLength:(NSUInteger)maxLength {
+    
+    NSArray *compressionFactorArray = @[@0.01, @0.1, @0.25, @0.5, @0.75, @1.0];
+    NSData *data = nil;
+    NSData *previousData = nil;
+    for (NSNumber *factor in compressionFactorArray) {
+        data = UIImageJPEGRepresentation(image, [factor doubleValue]);
+        NSLog(@"Size of photo data:%lu with compression factor:%f",(unsigned long)data.length, [factor doubleValue]);
+        if (data.length > maxLength) {
+            if (previousData) {
+                data = previousData;
+            }
+            break;
+        }
+        previousData = data;
+    }
+    return data;
 }
 
 - (bool)saveImage:(CGImageRef)image url:(NSURL*)url {
