@@ -111,6 +111,7 @@ public class CropSquareImagePlugin implements MethodCallHandler, PluginRegistry.
 
                 canvas.drawBitmap(srcBitmap, srcRect, dstRect, paint);
 
+                // Kludge - rotate image 90 degrees clockwise
                 Matrix matrix = new Matrix();
                 matrix.postRotate(90);
                 Bitmap rotatedBitmap = Bitmap.createBitmap(dstBitmap, 0, 0, dstBitmap.getWidth(), dstBitmap.getHeight(), matrix, true);
