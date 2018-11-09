@@ -9,6 +9,7 @@ import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.os.Build;
+import android.graphics.Matrix;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -110,9 +111,12 @@ public class CropSquareImagePlugin implements MethodCallHandler, PluginRegistry.
 
                 canvas.drawBitmap(srcBitmap, srcRect, dstRect, paint);
 
+                Matrix matrix = new Matrix();
+                matrix.postRotate(90);
+                Bitmap rotatedBitmap = Bitmap.createBitmap(dstBitmap, 0, 0, dstBitmap.getWidth(), dstBitmap.getHeight(), matrix, true);
                 try {
                     File dstFile = createTemporaryImageFile();
-                    compressBitmap(dstBitmap, dstFile);
+                    compressBitmap(rotatedBitmap, dstFile);
                     result.success(dstFile.getAbsolutePath());
                 } catch (IOException e) {
                     result.error("INVALID", "Image could not be saved", e);
@@ -120,6 +124,7 @@ public class CropSquareImagePlugin implements MethodCallHandler, PluginRegistry.
                     canvas.setBitmap(null);
                     dstBitmap.recycle();
                     srcBitmap.recycle();
+                    rotatedBitmap.recycle();
                 }
             }
         });
