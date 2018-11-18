@@ -135,7 +135,7 @@ public class CropSquareImagePlugin implements MethodCallHandler, PluginRegistry.
     private void compressBitmap(Bitmap bitmap, File file) throws IOException {
         OutputStream outputStream = new FileOutputStream(file);
         try {
-            boolean compressed = bitmap.compress(Bitmap.CompressFormat.JPEG, 50, outputStream);
+            boolean compressed = bitmap.compress(Bitmap.CompressFormat.JPEG, 25, outputStream);
             if (!compressed) {
                 throw new IOException("Failed to compress bitmap into JPEG");
             }
