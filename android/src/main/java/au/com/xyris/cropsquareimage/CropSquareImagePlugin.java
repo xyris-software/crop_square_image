@@ -8,14 +8,20 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.media.ExifInterface;
 import android.os.Build;
 import android.graphics.Matrix;
+import android.util.Log;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -68,6 +74,20 @@ public class CropSquareImagePlugin implements MethodCallHandler, PluginRegistry.
             double bottom = call.argument("bottom");
             RectF area = new RectF((float) left, (float) top, (float) right, (float) bottom);
             cropImage(path, area, (float) scale, result);
+        } else if ("cropImage2".equals(call.method)) {
+            String fileName = call.argument("file");
+            int originX = call.argument("originX");
+            int originY = call.argument("originY");
+            int width = call.argument("width");
+            int height = call.argument("height");
+            cropImage2(fileName, originX, originY, width, height, result);
+        } else if ("scaleImage2".equals(call.method)) {
+            String fileName = call.argument("file");
+            int resizePercentage = call.argument("percentage");
+            int targetWidth = call.argument("targetWidth") == null ? 0 : (int) call.argument("targetWidth");
+            int targetHeight = call.argument("targetHeight") == null ? 0 : (int) call.argument("targetHeight");
+            int quality = call.argument("quality");
+            scaleImage2(fileName, resizePercentage, targetWidth, targetHeight, quality, result);
         } else if ("getImageDimensions".equals(call.method)) {
             String path = call.argument("path");
             getImageDimensions(path, result);
@@ -75,6 +95,89 @@ public class CropSquareImagePlugin implements MethodCallHandler, PluginRegistry.
             requestPermissions(result);
         } else {
             result.notImplemented();
+        }
+    }
+
+    private void scaleImage2(final String fileName, final int resizePercentage, final int targetWidth, final int targetHeight, final int quality, Result result) {
+        File file = new File(fileName);
+
+        if(!file.exists()) {
+            result.error("file does not exist", fileName, null);
+            return;
+        }
+
+        Bitmap bmp = BitmapFactory.decodeFile(fileName);
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+
+        int newWidth = targetWidth == 0 ? (bmp.getWidth() / 100 * resizePercentage) : targetWidth;
+        int newHeight = targetHeight == 0 ? (bmp.getHeight() / 100 * resizePercentage) : targetHeight;
+
+        bmp = Bitmap.createScaledBitmap(
+                bmp, newWidth, newHeight, false);
+
+        bmp.compress(Bitmap.CompressFormat.JPEG, quality, bos);
+
+        try {
+            String outputFileName = File.createTempFile(
+                    getFilenameWithoutExtension(file).concat("_compressed"),
+                    ".jpg",
+                    activity.getExternalCacheDir()
+            ).getPath();
+
+            OutputStream outputStream = new FileOutputStream(outputFileName);
+            bos.writeTo(outputStream);
+
+            copyExif(fileName, outputFileName);
+
+            result.success(outputFileName);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            result.error("file does not exist", fileName, null);
+        } catch (IOException e) {
+            e.printStackTrace();
+            result.error("something went wrong", fileName, null);
+        }
+    }
+
+    private void cropImage2(final String fileName, final int originX, final int originY, final int width, final int height, Result result) {
+        File file = new File(fileName);
+
+        if(!file.exists()) {
+            result.error("file does not exist", fileName, null);
+            return;
+        }
+
+        Bitmap bmp = BitmapFactory.decodeFile(fileName);
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+
+        try {
+            bmp = Bitmap.createBitmap(bmp, originX, originY, width, height);
+        } catch(IllegalArgumentException e) {
+            e.printStackTrace();
+            result.error("bounds are outside of the dimensions of the source image", fileName, null);
+        }
+
+        bmp.compress(Bitmap.CompressFormat.JPEG, 100, bos);
+
+        try {
+            String outputFileName = File.createTempFile(
+                    getFilenameWithoutExtension(file).concat("_cropped"),
+                    ".jpg",
+                    activity.getExternalCacheDir()
+            ).getPath();
+
+            OutputStream outputStream = new FileOutputStream(outputFileName);
+            bos.writeTo(outputStream);
+
+            copyExif(fileName, outputFileName);
+
+            result.success(outputFileName);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            result.error("file does not exist", fileName, null);
+        } catch (IOException e) {
+            e.printStackTrace();
+            result.error("something went wrong", fileName, null);
         }
     }
 
@@ -209,5 +312,58 @@ public class CropSquareImagePlugin implements MethodCallHandler, PluginRegistry.
         File directory = activity.getCacheDir();
         String name = "crop_square_image_" + UUID.randomUUID().toString();
         return File.createTempFile(name, ".jpg", directory);
+    }
+
+    private static String getFilenameWithoutExtension(File file) {
+        String fileName = file.getName();
+
+        if (fileName.indexOf(".") > 0) {
+            return fileName.substring(0, fileName.lastIndexOf("."));
+        } else {
+            return fileName;
+        }
+    }
+
+    private void copyExif(String filePathOri, String filePathDest) {
+        try {
+            ExifInterface oldExif = new ExifInterface(filePathOri);
+            ExifInterface newExif = new ExifInterface(filePathDest);
+
+            List<String> attributes =
+                    Arrays.asList(
+                            "FNumber",
+                            "ExposureTime",
+                            "ISOSpeedRatings",
+                            "GPSAltitude",
+                            "GPSAltitudeRef",
+                            "FocalLength",
+                            "GPSDateStamp",
+                            "WhiteBalance",
+                            "GPSProcessingMethod",
+                            "GPSTimeStamp",
+                            "DateTime",
+                            "Flash",
+                            "GPSLatitude",
+                            "GPSLatitudeRef",
+                            "GPSLongitude",
+                            "GPSLongitudeRef",
+                            "Make",
+                            "Model",
+                            "Orientation");
+            for (String attribute : attributes) {
+                setIfNotNull(oldExif, newExif, attribute);
+            }
+
+            newExif.saveAttributes();
+
+        } catch (Exception ex) {
+            Log.e("CropSquareImagePlugin", "Error preserving Exif data on selected image: " + ex);
+        }
+    }
+
+    private void setIfNotNull(ExifInterface oldExif, ExifInterface newExif, String property) {
+        if (oldExif.getAttribute(property) != null) {
+            newExif.setAttribute(property, oldExif.getAttribute(property));
+        }
     }
 }

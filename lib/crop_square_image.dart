@@ -75,4 +75,34 @@ class CropSquareImage {
       'scale': scale ?? 1.0,
     }).then<File>((result) => File(result));
   }
+
+  static Future<File> cropImage2(
+      String fileName, int originX, int originY, int width, int height) async {
+    var file = await _channel.invokeMethod("cropImage2", {
+      'file': fileName,
+      'originX': originX,
+      'originY': originY,
+      'width': width,
+      'height': height
+    });
+    return new File(file);
+  }
+
+  static Future<File> scaleImage2(String fileName,
+      {int percentage = 70,
+        int quality = 70,
+        int targetWidth = 0,
+        int targetHeight = 0}) async {
+    var file = await _channel.invokeMethod("scaleImage2", {
+      'file': fileName,
+      'quality': quality,
+      'percentage': percentage,
+      'targetWidth': targetWidth,
+      'targetHeight': targetHeight
+    });
+
+    return new File(file);
+  }
+
+
 }
