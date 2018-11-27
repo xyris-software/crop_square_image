@@ -127,7 +127,7 @@ public class CropSquareImagePlugin implements MethodCallHandler, PluginRegistry.
             OutputStream outputStream = new FileOutputStream(outputFileName);
             bos.writeTo(outputStream);
 
-            copyExif(fileName, outputFileName);
+            copyExif(fileName, outputFileName, newWidth, newHeight);
 
             result.success(outputFileName);
         } catch (FileNotFoundException e) {
@@ -169,7 +169,7 @@ public class CropSquareImagePlugin implements MethodCallHandler, PluginRegistry.
             OutputStream outputStream = new FileOutputStream(outputFileName);
             bos.writeTo(outputStream);
 
-            copyExif(fileName, outputFileName);
+            copyExif(fileName, outputFileName, width, height);
 
             result.success(outputFileName);
         } catch (FileNotFoundException e) {
@@ -324,7 +324,7 @@ public class CropSquareImagePlugin implements MethodCallHandler, PluginRegistry.
         }
     }
 
-    private void copyExif(String filePathOri, String filePathDest) {
+    private void copyExif(String filePathOri, String filePathDest, int width, int height) {
         try {
             ExifInterface oldExif = new ExifInterface(filePathOri);
             ExifInterface newExif = new ExifInterface(filePathDest);
@@ -349,10 +349,13 @@ public class CropSquareImagePlugin implements MethodCallHandler, PluginRegistry.
                             "GPSLongitudeRef",
                             "Make",
                             "Model",
-                            "Orientation");
+                            "Orientation"
+                            );
             for (String attribute : attributes) {
                 setIfNotNull(oldExif, newExif, attribute);
             }
+            newExif.setAttribute("PixelXDimension", String.valueOf(width));
+            newExif.setAttribute("PixelYDimension", String.valueOf(height));
 
             newExif.saveAttributes();
 
