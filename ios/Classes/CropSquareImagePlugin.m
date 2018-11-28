@@ -49,6 +49,7 @@
               result:result];
     
   } else if ([@"scaleImage2" isEqualToString:call.method]) {
+    _arguments = call.arguments;
     NSString *fileArgument = [_arguments objectForKey:@"file"];
     int qualityArgument = [[_arguments objectForKey:@"quality"] intValue];
     int percentageArgument = [[_arguments objectForKey:@"percentage"] intValue];
@@ -149,8 +150,6 @@
                                  message:@"Temporary file could not be created"
                                  details:nil]);
     }
-    
-    result(finalFileName);
   }];
 }
 
@@ -198,7 +197,6 @@
     }
     
     result(finalFileName);
-    return;
   }];
 }
 
