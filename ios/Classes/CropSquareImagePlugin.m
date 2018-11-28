@@ -1,7 +1,7 @@
 #import "CropSquareImagePlugin.h"
-
 #import <Photos/Photos.h>
 #import <MobileCoreServices/MobileCoreServices.h>
+#import "UIImage+Resize.h"
 
 @implementation CropSquareImagePlugin
 
@@ -41,8 +41,26 @@
     int originY = [[_arguments objectForKey:@"originY"] intValue];
     int width = [[_arguments objectForKey:@"width"] intValue];
     int height = [[_arguments objectForKey:@"height"] intValue];
-    [self cropImage2:file originX:originX originY:originY width:width height:height result:result];
+    [self cropImage2:file
+             originX:originX
+             originY:originY
+               width:width
+              height:height
+              result:result];
     
+  } else if ([@"scaleImage2" isEqualToString:call.method]) {
+    NSString *fileArgument = [_arguments objectForKey:@"file"];
+    int qualityArgument = [[_arguments objectForKey:@"quality"] intValue];
+    int percentageArgument = [[_arguments objectForKey:@"percentage"] intValue];
+    int widthArgument = [[_arguments objectForKey:@"targetWidth"] intValue];
+    int heightArgument = [[_arguments objectForKey:@"targetHeight"] intValue];
+    [self scaleImage2:fileArgument
+              quality:qualityArgument
+           percentage:percentageArgument
+                width:widthArgument
+               height:heightArgument
+               result:result];
+
   } else if ([@"getImageProperties" isEqualToString:call.method]) {
     NSString* file = (NSString*)call.arguments[@"file"];
     [self getImageProperties:file result:result];
@@ -92,6 +110,48 @@
   UIImage *normalizedImage = UIGraphicsGetImageFromCurrentImageContext();
   UIGraphicsEndImageContext();
   return normalizedImage;
+}
+
+- (void)scaleImage2:(NSString *) file
+            quality:(int) quality
+         percentage:(int) percentage
+              width:(int) width
+             height:(int) height
+             result:(FlutterResult) result {
+  // do work on a different thread
+  [self execute:^{
+    NSString *fileExtension = @"_compressed.jpg";
+    
+    NSURL *uncompressedFileUrl = [NSURL URLWithString:file];
+    
+    NSString *fileName = [[file lastPathComponent] stringByDeletingPathExtension];
+    NSString *tempFileName =  [fileName stringByAppendingString:fileExtension];
+    NSString *finalFileName = [NSTemporaryDirectory() stringByAppendingPathComponent:tempFileName];
+    
+    NSString *path = [uncompressedFileUrl path];
+    NSData *data = [[NSFileManager defaultManager] contentsAtPath:path];
+    
+    UIImage *img = [[UIImage alloc] initWithData:data];
+    
+    CGFloat newWidth = (width == 0 ? (img.size.width / 100 * percentage) : width);
+    CGFloat newHeight = (height == 0 ? (img.size.height / 100 * percentage) : height);
+    
+    CGSize newSize = CGSizeMake(newWidth, newHeight);
+    
+    UIImage *resizedImage = [img resizedImage:newSize interpolationQuality:kCGInterpolationHigh];
+    resizedImage = [self normalizedImage:resizedImage];
+    NSData *imageData = UIImageJPEGRepresentation(resizedImage, quality / 100);
+    
+    if ([[NSFileManager defaultManager] createFileAtPath:finalFileName contents:imageData attributes:nil]) {
+      result(finalFileName);
+    } else {
+      result([FlutterError errorWithCode:@"create_error"
+                                 message:@"Temporary file could not be created"
+                                 details:nil]);
+    }
+    
+    result(finalFileName);
+  }];
 }
 
 - (void)cropImage2:(NSString *) file
