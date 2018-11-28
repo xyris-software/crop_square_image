@@ -14,10 +14,14 @@
 }
 
 - (void)handleMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
+  NSDictionary *_arguments;
+
   if ([@"getPlatformVersion" isEqualToString:call.method]) {
     result([@"iOS " stringByAppendingString:[[UIDevice currentDevice] systemVersion]]);
+    
   } else if ([@"getCurrentTemperature" isEqualToString:call.method]) {
       result(@"23.4 degrees");
+    
   } else if ([@"cropImage" isEqualToString:call.method]) {
       NSString* path = (NSString*)call.arguments[@"path"];
       NSNumber* left = (NSNumber*)call.arguments[@"left"];
@@ -29,39 +33,113 @@
                                right.floatValue - left.floatValue,
                                bottom.floatValue - top.floatValue);
       [self cropImage:path area:area scale:scale result:result];
+    
+  } else if ([@"cropImage2" isEqualToString:call.method]) {
+    _arguments = call.arguments;
+    NSString *file = [_arguments objectForKey:@"file"];
+    int originX = [[_arguments objectForKey:@"originX"] intValue];
+    int originY = [[_arguments objectForKey:@"originY"] intValue];
+    int width = [[_arguments objectForKey:@"width"] intValue];
+    int height = [[_arguments objectForKey:@"height"] intValue];
+    [self cropImage2:file originX:originX originY:originY width:width height:height result:result];
+    
+  } else if ([@"getImageProperties" isEqualToString:call.method]) {
+    NSString* file = (NSString*)call.arguments[@"file"];
+    [self getImageProperties:file result:result];
+    
   } else if ([@"getImageDimensions" isEqualToString:call.method]) {
       NSString* path = (NSString*)call.arguments[@"path"];
       [self getImageDimensions:path result:result];
+    
   } else if ([@"requestPermissions" isEqualToString:call.method]){
       [self requestPermissionsWithResult:result];
+    
   } else {
     result(FlutterMethodNotImplemented);
   }
 }
 
 - (UIImage *)imageRotatedByDegrees:(UIImage*)oldImage deg:(CGFloat)degrees{
-    // calculate the size of the rotated view's containing box for our drawing space
-    UIView *rotatedViewBox = [[UIView alloc] initWithFrame:CGRectMake(0,0,oldImage.size.width, oldImage.size.height)];
-    CGAffineTransform t = CGAffineTransformMakeRotation(degrees * M_PI / 180);
-    rotatedViewBox.transform = t;
-    CGSize rotatedSize = rotatedViewBox.frame.size;
-    // Create the bitmap context
-    UIGraphicsBeginImageContext(rotatedSize);
-    CGContextRef bitmap = UIGraphicsGetCurrentContext();
+  // calculate the size of the rotated view's containing box for our drawing space
+  UIView *rotatedViewBox = [[UIView alloc] initWithFrame:CGRectMake(0,0,oldImage.size.width, oldImage.size.height)];
+  CGAffineTransform t = CGAffineTransformMakeRotation(degrees * M_PI / 180);
+  rotatedViewBox.transform = t;
+  CGSize rotatedSize = rotatedViewBox.frame.size;
+  // Create the bitmap context
+  UIGraphicsBeginImageContext(rotatedSize);
+  CGContextRef bitmap = UIGraphicsGetCurrentContext();
+
+  // Move the origin to the middle of the image so we will rotate and scale around the center.
+  CGContextTranslateCTM(bitmap, rotatedSize.width/2, rotatedSize.height/2);
+
+  //   // Rotate the image context
+  CGContextRotateCTM(bitmap, (degrees * M_PI / 180));
+
+  // Now, draw the rotated/scaled image into the context
+  CGContextScaleCTM(bitmap, 1.0, -1.0);
+  CGContextDrawImage(bitmap, CGRectMake(-oldImage.size.width / 2, -oldImage.size.height / 2, oldImage.size.width, oldImage.size.height), [oldImage CGImage]);
+
+  UIImage *newImage = UIGraphicsGetImageFromCurrentImageContext();
+  UIGraphicsEndImageContext();
+  return newImage;
+}
+
+- (UIImage *)normalizedImage:(UIImage *)image {
+  if (image.imageOrientation == UIImageOrientationUp) return image;
+  
+  UIGraphicsBeginImageContextWithOptions(image.size, NO, image.scale);
+  [image drawInRect:(CGRect){0, 0, image.size}];
+  UIImage *normalizedImage = UIGraphicsGetImageFromCurrentImageContext();
+  UIGraphicsEndImageContext();
+  return normalizedImage;
+}
+
+- (void)cropImage2:(NSString *) file
+           originX:(int) originX
+           originY:(int) originY
+             width:(int) width
+            height:(int) height
+            result:(FlutterResult) result {
+  // do work on a different thread
+  [self execute:^{
+    NSString *fileExtension = @"_cropped.jpg";
+    NSURL *uncompressedFileUrl = [NSURL URLWithString:file];
+    NSString *fileName = [[file lastPathComponent] stringByDeletingPathExtension];
+    NSString *tempFileName =  [fileName stringByAppendingString:fileExtension];
+    NSString *finalFileName = [NSTemporaryDirectory() stringByAppendingPathComponent:tempFileName];
     
-    // Move the origin to the middle of the image so we will rotate and scale around the center.
-    CGContextTranslateCTM(bitmap, rotatedSize.width/2, rotatedSize.height/2);
+    NSString *path = [uncompressedFileUrl path];
+    NSData *data = [[NSFileManager defaultManager] contentsAtPath:path];
     
-    //   // Rotate the image context
-    CGContextRotateCTM(bitmap, (degrees * M_PI / 180));
+    UIImage *img = [[UIImage alloc] initWithData:data];
+    img = [self normalizedImage:img];
     
-    // Now, draw the rotated/scaled image into the context
-    CGContextScaleCTM(bitmap, 1.0, -1.0);
-    CGContextDrawImage(bitmap, CGRectMake(-oldImage.size.width / 2, -oldImage.size.height / 2, oldImage.size.width, oldImage.size.height), [oldImage CGImage]);
+    if(originX<0 || originY<0
+       || originX>img.size.width || originY>img.size.height
+       || originX+width>img.size.width || originY+height>img.size.height) {
+      result([FlutterError errorWithCode:@"bounds_error"
+                                 message:@"Bounds are outside of the dimensions of the source image"
+                                 details:nil]);
+    }
     
-    UIImage *newImage = UIGraphicsGetImageFromCurrentImageContext();
-    UIGraphicsEndImageContext();
-    return newImage;
+    CGRect cropRect = CGRectMake(originX, originY, width, height);
+    CGImageRef imageRef = CGImageCreateWithImageInRect([img CGImage], cropRect);
+    UIImage *croppedImg = [UIImage imageWithCGImage:imageRef];
+    CGImageRelease(imageRef);
+    
+    NSData *imageData = UIImageJPEGRepresentation(croppedImg, 1.0);
+    
+    if ([[NSFileManager defaultManager] createFileAtPath:finalFileName contents:imageData attributes:nil]) {
+      result(finalFileName);
+    } else {
+      result([FlutterError errorWithCode:@"create_error"
+                                 message:@"Temporary file could not be created"
+                                 details:nil]);
+    }
+    
+    result(finalFileName);
+    return;
+  }];
 }
 
 - (void)cropImage:(NSString*)path
@@ -160,6 +238,37 @@
                                        details:nil]);
         }
     }];
+}
+
+- (void)getImageProperties:(NSString *) file
+                    result:(FlutterResult) result {
+  [self execute:^{
+    NSURL* url = [NSURL fileURLWithPath:file];
+    CGImageSourceRef image = CGImageSourceCreateWithURL((CFURLRef) url, NULL);
+    
+    if (image == NULL) {
+      result([FlutterError errorWithCode:@"INVALID"
+                                 message:@"Image source cannot be opened"
+                                 details:nil]);
+      return;
+    }
+    
+    CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(image, 0, nil);
+    CFRelease(image);
+    
+    if (properties == NULL) {
+      result([FlutterError errorWithCode:@"INVALID"
+                                 message:@"Image source properties cannot be copied"
+                                 details:nil]);
+      return;
+    }
+    
+    NSNumber* width = (NSNumber*) CFDictionaryGetValue(properties, kCGImagePropertyPixelWidth);
+    NSNumber* height = (NSNumber*) CFDictionaryGetValue(properties, kCGImagePropertyPixelHeight);
+    CFRelease(properties);
+    
+    result(@{ @"width": @(lroundf([width floatValue])),  @"height": @(lroundf([height floatValue])) });
+  }];
 }
 
 - (void)getImageDimensions:(NSString*)path result:(FlutterResult)result {
