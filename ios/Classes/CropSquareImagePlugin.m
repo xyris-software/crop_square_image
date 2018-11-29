@@ -173,11 +173,24 @@
     UIImage *img = [[UIImage alloc] initWithData:data];
     img = [self normalizedImage:img];
     
-    if(originX<0 || originY<0
-       || originX>img.size.width || originY>img.size.height
-       || originX+width>img.size.width || originY+height>img.size.height) {
+    // hack.
+    // crop photo into a square
+    CGFloat originX2 = 0.0;
+    CGFloat originY2 = 0.0;
+    if (img.size.height > img.size.width) {
+      originY2 = roundf(img.size.height / 2.0 - img.size.width / 2.0);
+    } else {
+      originX2 = roundf(img.size.width / 2.0 - img.size.height / 2.0);
+    }
+
+    
+    
+    if(originX2 < 0 || originY2 < 0
+       || originX2 > img.size.width || originY2 > img.size.height
+       || originX2 + width > img.size.width || originY2 + height > img.size.height) {
       result([FlutterError errorWithCode:@"bounds_error"
-                                 message:[NSString stringWithFormat:@"Bounds are outside of the dimensions of the source image originX[%d] originY[%d] width[%d] height[%d] img.width[%f] img.height[%f]",originX,originY,width,height,img.size.width,img.size.height]
+                                 message:[NSString stringWithFormat:@"Bounds are outside of the dimensions of the source image originX[%d] originY[%d] width[%d] height[%d] img.width[%d] img.height[%d]",
+                                          (int) roundf(originX2), (int) roundf(originY2), width,height,(int) roundf(img.size.width), (int) roundf(img.size.height)]
                                  details:nil]);
     }
     
