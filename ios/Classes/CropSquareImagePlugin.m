@@ -208,8 +208,6 @@
                                  message:@"Temporary file could not be created"
                                  details:nil]);
     }
-    
-    result(finalFileName);
   }];
 }
 
