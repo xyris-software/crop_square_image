@@ -194,7 +194,7 @@
                                  details:nil]);
     }
     
-    CGRect cropRect = CGRectMake(originX, originY, width, height);
+    CGRect cropRect = CGRectMake(originX2, originY2, width, height);
     CGImageRef imageRef = CGImageCreateWithImageInRect([img CGImage], cropRect);
     UIImage *croppedImg = [UIImage imageWithCGImage:imageRef];
     CGImageRelease(imageRef);
