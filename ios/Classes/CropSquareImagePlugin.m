@@ -177,7 +177,7 @@
        || originX>img.size.width || originY>img.size.height
        || originX+width>img.size.width || originY+height>img.size.height) {
       result([FlutterError errorWithCode:@"bounds_error"
-                                 message:@"Bounds are outside of the dimensions of the source image"
+                                 message:[NSString stringWithFormat:@"Bounds are outside of the dimensions of the source image originX[%d] originY[%d] width[%d] height[%d] img.width[%f] img.height[%f]",originX,originY,width,height,img.size.width,img.size.height]
                                  details:nil]);
     }
     
