@@ -182,9 +182,11 @@ public class CropSquareImagePlugin implements MethodCallHandler, PluginRegistry.
     }
 
     private void cropImage(final String path, final RectF area, final float scale, final Result result) {
-        executor.execute(new Runnable() {
-            @Override
-            public void run() {
+//        Remove asynchronous processing to fix Android crash issue
+//        "Methods marked with @UiThread must be executed on the main thread"
+///        executor.execute(new Runnable() {
+//            @Override
+//            public void run() {
                 File srcFile = new File(path);
                 if (!srcFile.exists()) {
                     result.error("INVALID", "Image source cannot be opened", null);
@@ -230,8 +232,8 @@ public class CropSquareImagePlugin implements MethodCallHandler, PluginRegistry.
                     srcBitmap.recycle();
                     rotatedBitmap.recycle();
                 }
-            }
-        });
+//            }
+//        });
     }
 
     @SuppressWarnings("TryFinallyCanBeTryWithResources")
@@ -251,9 +253,11 @@ public class CropSquareImagePlugin implements MethodCallHandler, PluginRegistry.
     }
 
     private void getImageDimensions(final String path, final Result result) {
-        executor.execute(new Runnable() {
-            @Override
-            public void run() {
+//        Remove asynchronous processing to fix Android crash issue
+//        "Methods marked with @UiThread must be executed on the main thread"
+//        executor.execute(new Runnable() {
+//            @Override
+//            public void run() {
                 File file = new File(path);
                 if (!file.exists()) {
                     result.error("INVALID", "Image source cannot be opened", null);
@@ -269,8 +273,8 @@ public class CropSquareImagePlugin implements MethodCallHandler, PluginRegistry.
                 properties.put("height", options.outHeight);
 
                 result.success(properties);
-            }
-        });
+//            }
+//        });
     }
 
     private void requestPermissions(Result result) {
